@@ -123,6 +123,16 @@
       <span class="weather-icon" id="weatherIcon">⏳</span>
       <div class="weather-desc" id="weatherDesc">取得中...</div>
     </div>
+    <div class="data-card">
+      <div class="data-label">波高</div>
+      <div class="data-value" id="waveHeight"><div class="skeleton"></div></div>
+      <div class="data-unit">m</div>
+    </div>
+    <div class="data-card">
+      <div class="data-label">波の状態</div>
+      <div style="font-size:32px;margin:6px 0" id="waveIcon">⏳</div>
+      <div class="data-unit" id="waveDesc" style="font-size:12px">取得中...</div>
+    </div>
     <div class="data-card full-width">
       <div class="data-label">風向き</div>
       <div class="wind-direction-display">
@@ -210,7 +220,27 @@ let hourlyCache={};
 function dk(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function todayKey(){return dk(new Date())}
 function wClass(s){return s<=3?'ok':s<=6?'caution':'ng'}
-function wJudge(s){
+function waveJudge(h) {
+  if(h<=0.5) return {cls:'go',label:'穏やか',icon:'🌊'};
+  if(h<=1.0) return {cls:'warn',label:'やや波あり',icon:'🌊'};
+  return {cls:'stop',label:'高波注意',icon:'⚠️'};
+}
+
+function combinedJudge(wind, wave) {
+  // 風速・波高どちらか悪い方で判定
+  const wj = wJudge(wind);
+  const vj = waveJudge(wave);
+  const rank = {go:0, warn:1, stop:2};
+  if(rank[vj.cls] > rank[wj.cls]) {
+    return {cls:vj.cls, badge:'badge-'+vj.cls, label: vj.cls==='stop'?'出航NG':vj.cls==='warn'?'要判断':'出航OK',
+      emoji: vj.cls==='stop'?'🚫':vj.cls==='warn'?'🤔':'⛵',
+      text: vj.cls==='stop'?'出航NG':vj.cls==='warn'?'要注意':'出航OK！',
+      sub: `風速${wind.toFixed(1)}m/s・波高${wave.toFixed(1)}m — ${vj.cls==='stop'?'高波警報！今日は陸でのんびりしましょう。':'波がやや高め。経験と判断次第です。'}`};
+  }
+  return {...wj, sub: `風速${wind.toFixed(1)}m/s・波高${wave.toFixed(1)}m — ${wj.cls==='go'?'凪いでます。最高の一日を！':wj.cls==='warn'?'やや風あり。経験と判断次第です。':'今日は陸でのんびりしましょう。'}`};
+}
+
+
   if(s<=3)return{cls:'go',badge:'badge-go',label:'出航OK',emoji:'⛵',text:'出航OK！',sub:`風速${s.toFixed(1)}m/s — 凪いでます。最高の一日を！`};
   if(s<=6)return{cls:'warn',badge:'badge-warn',label:'要判断',emoji:'🤔',text:'要注意',sub:`風速${s.toFixed(1)}m/s — やや風あり。経験と判断次第です。`};
   return{cls:'stop',badge:'badge-stop',label:'出航NG',emoji:'🚫',text:'出航NG',sub:`風速${s.toFixed(1)}m/s — 今日は陸でのんびりしましょう。`};
@@ -291,13 +321,15 @@ async function fetchWeather(){
   btn.disabled=true; btn.textContent='取得中...';
   const now=new Date();
   try{
-    const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=wind_speed_10m,wind_direction_10m,weather_code&hourly=wind_speed_10m,wind_direction_10m,weather_code&wind_speed_unit=ms&forecast_days=7&timezone=Asia%2FTokyo`);
+    const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current=wind_speed_10m,wind_direction_10m,weather_code,wave_height&hourly=wind_speed_10m,wind_direction_10m,weather_code,wave_height&wind_speed_unit=ms&forecast_days=7&timezone=Asia%2FTokyo`);
     if(!res.ok)throw new Error();
     const data=await res.json();
     const cur=data.current;
-    const j=wJudge(cur.wind_speed_10m);
+    const waveH = cur.wave_height ?? 0;
+    const j=combinedJudge(cur.wind_speed_10m, waveH);
     const dirIdx=Math.round(cur.wind_direction_10m/22.5)%16;
     const w=WMO[cur.weather_code]||['🌡️','不明'];
+    const wv=waveJudge(waveH);
 
     document.getElementById('verdictCard').className=`verdict-card ${j.cls}`;
     document.getElementById('verdictEmoji').textContent=j.emoji;
@@ -308,6 +340,9 @@ async function fetchWeather(){
     document.getElementById('weatherDesc').textContent=w[1];
     document.getElementById('compassArrow').setAttribute('transform',`rotate(${cur.wind_direction_10m},30,30)`);
     document.getElementById('windDir').textContent=WIND_DIR_JP[dirIdx];
+    document.getElementById('waveHeight').textContent=waveH.toFixed(1);
+    document.getElementById('waveIcon').textContent=wv.icon;
+    document.getElementById('waveDesc').textContent=wv.label;
 
     // 時間別キャッシュ
     hourlyCache={};
