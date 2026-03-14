@@ -325,27 +325,21 @@ async function fetchWeather(){
     if(!res.ok)throw new Error();
     const data=await res.json();
 
-    // 波高は別のMarine APIから取得
-    let waveH = 0;
+    // 波高は別のMarine APIから取得（失敗しても天気は表示する）
+    let waveH = null;
     try {
-      const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${LAT}&longitude=${LON}&current=wave_height&hourly=wave_height&forecast_days=7&timezone=Asia%2FTokyo`);
+      const mController = new AbortController();
+      const mTimeout = setTimeout(() => mController.abort(), 5000);
+      const mRes = await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${LAT}&longitude=${LON}&current=wave_height&forecast_days=7&timezone=Asia%2FTokyo`, {signal: mController.signal});
+      clearTimeout(mTimeout);
       if(mRes.ok){
         const mData = await mRes.json();
-        waveH = mData.current?.wave_height ?? 0;
-        // 時間別波高もキャッシュ
-        if(mData.hourly){
-          const mht = mData.hourly.time, mhw = mData.hourly.wave_height;
-          for(let i=0;i<mht.length;i++){
-            const t=new Date(mht[i]), d=dk(t);
-            if(!hourlyCache[d]) hourlyCache[d]=[];
-            const existing = hourlyCache[d].find(x=>x.h===t.getHours());
-            if(existing) existing.wave = mhw[i];
-          }
-        }
+        waveH = mData.current?.wave_height ?? null;
       }
-    } catch(e){ waveH = 0; }
+    } catch(e){ waveH = null; }
     const cur=data.current;
-    const j=combinedJudge(cur.wind_speed_10m, waveH);
+    const j = waveH !== null ? combinedJudge(cur.wind_speed_10m, waveH) : wJudge(cur.wind_speed_10m);
+    const wv = waveH !== null ? waveJudge(waveH) : null;
     const dirIdx=Math.round(cur.wind_direction_10m/22.5)%16;
     const w=WMO[cur.weather_code]||['🌡️','不明'];
     const wv=waveJudge(waveH);
@@ -359,9 +353,9 @@ async function fetchWeather(){
     document.getElementById('weatherDesc').textContent=w[1];
     document.getElementById('compassArrow').setAttribute('transform',`rotate(${cur.wind_direction_10m},30,30)`);
     document.getElementById('windDir').textContent=WIND_DIR_JP[dirIdx];
-    document.getElementById('waveHeight').textContent=waveH.toFixed(1);
-    document.getElementById('waveIcon').textContent=wv.icon;
-    document.getElementById('waveDesc').textContent=wv.label;
+    document.getElementById('waveHeight').textContent = waveH !== null ? waveH.toFixed(1) : '--';
+    document.getElementById('waveIcon').textContent = wv ? wv.icon : '🌊';
+    document.getElementById('waveDesc').textContent = wv ? wv.label : '取得できず';
 
     // 時間別キャッシュ
     hourlyCache={};
