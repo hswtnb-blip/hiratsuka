@@ -6,89 +6,299 @@
 <title>海況チェッカー</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Noto+Sans+JP:wght@300;400;700&display=swap" rel="stylesheet">
 <style>
-  :root{--ocean:#0a1628;--wave:#1a4a7a;--foam:#4a9eca;--sky:#7ec8e3;--go:#2ecc71;--text:#e8f4fd;--muted:#7fb3cc}
+  :root{--ocean:#0a1628;--deep:#0d2137;--wave:#1a4a7a;--foam:#4a9eca;--sky:#7ec8e3;--go:#2ecc71;--warn:#f39c12;--text:#e8f4fd;--muted:#7fb3cc}
   *{margin:0;padding:0;box-sizing:border-box}
   body{background:var(--ocean);color:var(--text);font-family:'Noto Sans JP',sans-serif;min-height:100vh;overflow-x:hidden}
-  body::before{content:'';position:fixed;bottom:0;left:0;right:0;height:200px;background:linear-gradient(180deg,transparent,var(--wave) 60%,#0d2137);opacity:0.4;animation:wavePulse 4s ease-in-out infinite;pointer-events:none;z-index:0}
-  @keyframes wavePulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-15px)}}
-  .container{max-width:480px;margin:0 auto;padding:40px 20px 80px;position:relative;z-index:1}
-  header{text-align:center;margin-bottom:48px}
-  .title{font-family:'Bebas Neue',cursive;font-size:48px;letter-spacing:4px;color:var(--sky);text-shadow:0 0 30px rgba(126,200,227,0.5)}
-  .subtitle{font-size:12px;color:var(--muted);letter-spacing:3px;margin-top:6px}
-  .marina-grid{display:flex;flex-direction:column;gap:16px}
-  .marina-card{
+  body::before{content:'';position:fixed;bottom:0;left:0;right:0;height:180px;background:linear-gradient(180deg,transparent,var(--wave) 60%,var(--deep));opacity:0.35;animation:wavePulse 4s ease-in-out infinite;pointer-events:none;z-index:0}
+  @keyframes wavePulse{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  .container{max-width:500px;margin:0 auto;padding:24px 16px 80px;position:relative;z-index:1}
+  header{text-align:center;margin-bottom:24px;padding-top:12px}
+  .title{font-family:'Bebas Neue',cursive;font-size:44px;letter-spacing:4px;color:var(--sky);text-shadow:0 0 30px rgba(126,200,227,0.5)}
+  .subtitle{font-size:11px;color:var(--muted);letter-spacing:3px;margin-top:4px}
+
+  /* 地図エリア */
+  .map-wrapper{
     background:rgba(255,255,255,0.04);
     border:1px solid rgba(255,255,255,0.1);
     border-radius:20px;
-    padding:24px 20px;
+    padding:16px;
+    margin-bottom:20px;
+    position:relative;
+  }
+  .map-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-align:center;margin-bottom:12px;text-transform:uppercase}
+  .map-container{position:relative;width:100%;user-select:none}
+  .map-container svg{width:100%;height:auto;display:block}
+
+  /* ピン */
+  .marina-pin{cursor:pointer;transition:transform 0.2s}
+  .marina-pin:hover .pin-circle{filter:drop-shadow(0 0 8px rgba(126,200,227,0.8))}
+  .marina-pin:hover{transform:scale(1.15)}
+  .marina-pin.active .pin-circle{fill:var(--go) !important}
+  .marina-pin.active{transform:scale(1.2)}
+
+  /* ツールチップ */
+  .tooltip{
+    position:absolute;
+    background:rgba(13,33,55,0.97);
+    border:1px solid rgba(126,200,227,0.4);
+    border-radius:12px;
+    padding:10px 14px;
+    pointer-events:none;
+    opacity:0;
+    transition:opacity 0.2s;
+    z-index:10;
+    min-width:160px;
+    box-shadow:0 4px 20px rgba(0,0,0,0.5);
+  }
+  .tooltip.show{opacity:1}
+  .tooltip-name{font-family:'Bebas Neue',cursive;font-size:16px;color:var(--sky);letter-spacing:1px;margin-bottom:2px}
+  .tooltip-loc{font-size:11px;color:var(--muted)}
+
+  /* リスト */
+  .marina-list{display:flex;flex-direction:column;gap:10px}
+  .marina-card{
+    background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);
+    border-radius:14px;
+    padding:16px 18px;
     text-decoration:none;
     color:var(--text);
     display:flex;
     align-items:center;
-    gap:20px;
-    transition:all 0.3s;
-    cursor:pointer;
+    gap:14px;
+    transition:all 0.25s;
   }
-  .marina-card:hover{
-    background:rgba(126,200,227,0.08);
-    border-color:rgba(126,200,227,0.4);
-    transform:translateY(-3px);
-    box-shadow:0 8px 30px rgba(126,200,227,0.15);
-  }
-  .marina-icon{font-size:48px;flex-shrink:0}
+  .marina-card:hover{background:rgba(126,200,227,0.08);border-color:rgba(126,200,227,0.35);transform:translateX(4px)}
+  .marina-num{font-family:'Bebas Neue',cursive;font-size:22px;color:var(--foam);width:24px;flex-shrink:0;text-align:center}
   .marina-info{flex:1}
-  .marina-name{font-family:'Bebas Neue',cursive;font-size:26px;letter-spacing:2px;color:var(--sky);margin-bottom:4px}
-  .marina-location{font-size:12px;color:var(--muted);margin-bottom:6px}
-  .marina-area{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:rgba(126,200,227,0.6)}
-  .arrow{font-size:20px;color:var(--muted);flex-shrink:0}
-  .version-note{text-align:center;font-size:11px;color:var(--muted);margin-top:32px;opacity:0.6}
+  .marina-name{font-size:14px;font-weight:700;margin-bottom:2px}
+  .marina-loc{font-size:11px;color:var(--muted)}
+  .marina-arrow{color:var(--muted);font-size:16px}
+
+  /* 沖縄エリアの拡大表示 */
+  .okinawa-box{
+    background:rgba(255,255,255,0.03);
+    border:1px solid rgba(255,255,255,0.07);
+    border-radius:12px;
+    padding:10px;
+    margin-top:10px;
+    position:relative;
+  }
+  .okinawa-label{font-size:9px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:8px;text-align:center}
+  .okinawa-svg{width:100%;height:auto;display:block}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
     <div class="title">⛵ MARINA</div>
-    <div class="subtitle">海況チェッカー — 拠点を選んでください</div>
+    <div class="subtitle">拠点を選んで海況チェック</div>
   </header>
-  <div class="marina-grid">
-    <a class="marina-card" href="hiratsuka-weather.html">
-      <div class="marina-icon">🌊</div>
-      <div class="marina-info">
-        <div class="marina-name">シースタイル平塚</div>
-        <div class="marina-location">神奈川県平塚市</div>
-        <div class="marina-area">HIRATSUKA · 相模湾</div>
+
+  <!-- 日本地図 -->
+  <div class="map-wrapper">
+    <div class="map-label">📍 マリーナ拠点マップ</div>
+    <div class="map-container" id="mapContainer">
+      <!-- 日本地図SVG（簡略版） -->
+      <svg viewBox="0 0 500 600" xmlns="http://www.w3.org/2000/svg" id="japanMap">
+        <defs>
+          <style>
+            .land{fill:#1a3a5c;stroke:#2a5a8c;stroke-width:0.8}
+            .sea{fill:none}
+          </style>
+        </defs>
+
+        <!-- 背景（海） -->
+        <rect width="500" height="600" fill="#0a1628"/>
+
+        <!-- 本州（簡略パス） -->
+        <path class="land" d="
+          M180,80 L195,75 L215,70 L240,68 L260,72 L275,80 L285,90
+          L290,105 L285,115 L275,120 L265,125 L255,130 L260,140
+          L270,150 L280,165 L285,180 L275,185 L265,180 L255,175
+          L245,170 L235,175 L230,185 L225,195 L220,205 L215,215
+          L210,225 L205,235 L200,245 L195,255 L190,265 L185,275
+          L180,285 L175,295 L170,305 L165,315 L160,325 L155,335
+          L150,345 L145,350 L140,355 L135,358 L130,355 L125,348
+          L120,340 L115,332 L120,325 L130,320 L140,315 L148,308
+          L155,300 L160,290 L162,278 L160,265 L155,255 L150,245
+          L145,238 L148,228 L155,220 L162,215 L168,208 L172,198
+          L175,188 L174,178 L170,168 L165,158 L160,148 L158,138
+          L160,128 L165,118 L170,110 L175,100 L178,90 Z"/>
+
+        <!-- 東北・北海道方向の陸地 -->
+        <path class="land" d="
+          M215,70 L220,60 L225,50 L230,42 L235,38 L240,35
+          L245,38 L248,45 L245,55 L240,65 L235,68 L230,68 Z"/>
+        <path class="land" d="
+          M225,50 L230,40 L235,32 L240,25 L248,20 L258,18
+          L268,20 L275,28 L278,38 L272,45 L262,48 L252,47
+          L242,48 L235,52 Z"/>
+
+        <!-- 北海道 -->
+        <path class="land" d="
+          M258,18 L265,12 L275,8 L290,6 L305,8 L318,14
+          L328,22 L332,32 L328,42 L318,48 L305,50 L292,48
+          L280,44 L270,38 L264,30 Z"/>
+
+        <!-- 四国 -->
+        <path class="land" d="
+          M175,340 L185,335 L198,332 L210,335 L220,340
+          L225,350 L220,358 L210,362 L198,362 L187,358
+          L178,350 Z"/>
+
+        <!-- 九州 -->
+        <path class="land" d="
+          M128,355 L138,350 L148,348 L158,352 L165,360
+          L168,372 L165,382 L158,390 L148,395 L138,393
+          L128,388 L122,378 L120,368 L122,358 Z"/>
+
+        <!-- 紀伊半島 -->
+        <path class="land" d="
+          M195,255 L202,262 L208,272 L210,282 L206,290
+          L198,295 L190,292 L184,283 L182,272 L186,262 Z"/>
+
+        <!-- 能登半島 -->
+        <path class="land" d="
+          M175,178 L168,172 L162,165 L160,155 L165,148
+          L172,145 L178,150 L180,160 L178,170 Z"/>
+
+        <!-- 沖縄（小さく右下に） -->
+        <ellipse class="land" cx="120" cy="530" rx="18" ry="8"/>
+        <circle class="land" cx="100" cy="535" r="6"/>
+        <circle class="land" cx="90" cy="540" r="5"/>
+
+        <!-- ピン：平塚 (神奈川) -->
+        <g class="marina-pin" id="pin0" onclick="goMarina(0)" transform="translate(248,272)">
+          <circle class="pin-circle" cx="0" cy="-12" r="9" fill="var(--sky)" opacity="0.9"/>
+          <text x="0" y="-8" text-anchor="middle" fill="var(--ocean)" font-size="9" font-weight="bold">⛵</text>
+          <polygon points="0,0 -4,-8 4,-8" fill="var(--sky)" opacity="0.9"/>
+        </g>
+
+        <!-- ピン：芦名 (横須賀) -->
+        <g class="marina-pin" id="pin1" onclick="goMarina(1)" transform="translate(258,282)">
+          <circle class="pin-circle" cx="0" cy="-12" r="9" fill="var(--foam)" opacity="0.9"/>
+          <text x="0" y="-8" text-anchor="middle" fill="var(--ocean)" font-size="9" font-weight="bold">⚓</text>
+          <polygon points="0,0 -4,-8 4,-8" fill="var(--foam)" opacity="0.9"/>
+        </g>
+
+        <!-- ピン：木更津 (千葉) -->
+        <g class="marina-pin" id="pin2" onclick="goMarina(2)" transform="translate(275,265)">
+          <circle class="pin-circle" cx="0" cy="-12" r="9" fill="var(--warn)" opacity="0.9"/>
+          <text x="0" y="-8" text-anchor="middle" fill="var(--ocean)" font-size="9" font-weight="bold">🚢</text>
+          <polygon points="0,0 -4,-8 4,-8" fill="var(--warn)" opacity="0.9"/>
+        </g>
+
+        <!-- ピン：伊東 (静岡) -->
+        <g class="marina-pin" id="pin3" onclick="goMarina(3)" transform="translate(255,295)">
+          <circle class="pin-circle" cx="0" cy="-12" r="9" fill="#e74c3c" opacity="0.9"/>
+          <text x="0" y="-8" text-anchor="middle" fill="white" font-size="9" font-weight="bold">🌅</text>
+          <polygon points="0,0 -4,-8 4,-8" fill="#e74c3c" opacity="0.9"/>
+        </g>
+
+        <!-- ピン：沼津 (静岡) -->
+        <g class="marina-pin" id="pin4" onclick="goMarina(4)" transform="translate(240,290)">
+          <circle class="pin-circle" cx="0" cy="-12" r="9" fill="#9b59b6" opacity="0.9"/>
+          <text x="0" y="-8" text-anchor="middle" fill="white" font-size="9" font-weight="bold">🗻</text>
+          <polygon points="0,0 -4,-8 4,-8" fill="#9b59b6" opacity="0.9"/>
+        </g>
+
+        <!-- 沖縄ピン（3つ、右下の島付近） -->
+        <g class="marina-pin" id="pin5" onclick="goMarina(5)" transform="translate(100,524)">
+          <circle class="pin-circle" cx="0" cy="-10" r="8" fill="var(--go)" opacity="0.9"/>
+          <text x="0" y="-6" text-anchor="middle" fill="var(--ocean)" font-size="8" font-weight="bold">🌺</text>
+          <polygon points="0,0 -3,-7 3,-7" fill="var(--go)" opacity="0.9"/>
+        </g>
+        <g class="marina-pin" id="pin6" onclick="goMarina(6)" transform="translate(114,528)">
+          <circle class="pin-circle" cx="0" cy="-10" r="8" fill="#f39c12" opacity="0.9"/>
+          <text x="0" y="-6" text-anchor="middle" fill="var(--ocean)" font-size="8" font-weight="bold">🌺</text>
+          <polygon points="0,0 -3,-7 3,-7" fill="#f39c12" opacity="0.9"/>
+        </g>
+        <g class="marina-pin" id="pin7" onclick="goMarina(7)" transform="translate(125,532)">
+          <circle class="pin-circle" cx="0" cy="-10" r="8" fill="#e74c3c" opacity="0.9"/>
+          <text x="0" y="-6" text-anchor="middle" fill="white" font-size="8" font-weight="bold">🌺</text>
+          <polygon points="0,0 -3,-7 3,-7" fill="#e74c3c" opacity="0.9"/>
+        </g>
+
+        <!-- 地名ラベル -->
+        <text x="270" y="250" fill="rgba(126,200,227,0.3)" font-size="9" font-family="Noto Sans JP">関東</text>
+        <text x="235" y="310" fill="rgba(126,200,227,0.3)" font-size="9" font-family="Noto Sans JP">東海</text>
+        <text x="88" y="515" fill="rgba(126,200,227,0.3)" font-size="8" font-family="Noto Sans JP">沖縄</text>
+
+        <!-- 沖縄エリア枠 -->
+        <rect x="78" y="508" width="62" height="36" rx="6" fill="none" stroke="rgba(126,200,227,0.2)" stroke-width="1" stroke-dasharray="3,2"/>
+      </svg>
+
+      <!-- ツールチップ -->
+      <div class="tooltip" id="tooltip">
+        <div class="tooltip-name" id="ttName"></div>
+        <div class="tooltip-loc" id="ttLoc"></div>
       </div>
-      <div class="arrow">›</div>
-    </a>
-    <a class="marina-card" href="ashina-weather.html">
-      <div class="marina-icon">⚓</div>
-      <div class="marina-info">
-        <div class="marina-name">シースタイル芦名</div>
-        <div class="marina-location">神奈川県横須賀市</div>
-        <div class="marina-area">ASHINA · 相模湾</div>
-      </div>
-      <div class="arrow">›</div>
-    </a>
-    <a class="marina-card" href="kisarazu-weather.html">
-      <div class="marina-icon">🚢</div>
-      <div class="marina-info">
-        <div class="marina-name">セントラルボート木更津</div>
-        <div class="marina-location">千葉県木更津市</div>
-        <div class="marina-area">KISARAZU · 東京湾</div>
-      </div>
-      <div class="arrow">›</div>
-    </a>
-    <a class="marina-card" href="ito-weather.html">
-      <div class="marina-icon">🌅</div>
-      <div class="marina-info">
-        <div class="marina-name">伊東サンライズマリーナ</div>
-        <div class="marina-location">静岡県伊東市</div>
-        <div class="marina-area">ITO · 相模湾</div>
-      </div>
-      <div class="arrow">›</div>
-    </a>
+    </div>
+    <div style="font-size:10px;color:var(--muted);text-align:center;margin-top:8px;opacity:0.6">ピンをタップ → 海況チェック</div>
   </div>
-  <div class="version-note">潮汐データは3月分のみ対応</div>
+
+  <!-- リスト -->
+  <div class="marina-list" id="marinaList"></div>
 </div>
+
+<script>
+const MARINAS = [
+  {name:'シースタイル平塚',      loc:'神奈川県平塚市',   file:'hiratsuka-weather.html', icon:'🌊', color:'var(--sky)'},
+  {name:'シースタイル芦名',      loc:'神奈川県横須賀市', file:'ashina-weather.html',    icon:'⚓', color:'var(--foam)'},
+  {name:'セントラルボート木更津', loc:'千葉県木更津市',   file:'kisarazu-weather.html',  icon:'🚢', color:'var(--warn)'},
+  {name:'伊東サンライズマリーナ', loc:'静岡県伊東市',     file:'ito-weather.html',       icon:'🌅', color:'#e74c3c'},
+  {name:'ヤマハマリーナ沼津',    loc:'静岡県沼津市',     file:'numazu-weather.html',    icon:'🗻', color:'#9b59b6'},
+  {name:'マリンランド北谷',      loc:'沖縄県北谷町',     file:'chatan-weather.html',    icon:'🌺', color:'var(--go)'},
+  {name:'沖縄マリーナ（中城）',  loc:'沖縄県中城村',     file:'nakagusuku-weather.html',icon:'🌺', color:'#f39c12'},
+  {name:'沖縄マリーナ（泡瀬）',  loc:'沖縄県沖縄市',     file:'awase-weather.html',     icon:'🌺', color:'#e74c3c'},
+];
+
+// リスト生成
+const list = document.getElementById('marinaList');
+MARINAS.forEach((m,i)=>{
+  const a = document.createElement('a');
+  a.className = 'marina-card';
+  a.href = m.file;
+  a.innerHTML = `
+    <div class="marina-num" style="color:${m.color}">${i+1}</div>
+    <div class="marina-info">
+      <div class="marina-name">${m.icon} ${m.name}</div>
+      <div class="marina-loc">${m.loc}</div>
+    </div>
+    <div class="marina-arrow">›</div>`;
+  list.appendChild(a);
+});
+
+// ピンのホバー・タップ
+const tooltip = document.getElementById('tooltip');
+const mapContainer = document.getElementById('mapContainer');
+
+function goMarina(idx){
+  window.location.href = MARINAS[idx].file;
+}
+
+// ピンにホバー表示（デスクトップ）
+document.querySelectorAll('.marina-pin').forEach((pin, i)=>{
+  pin.addEventListener('mouseenter', (e)=>{
+    document.getElementById('ttName').textContent = MARINAS[i].name;
+    document.getElementById('ttLoc').textContent = MARINAS[i].loc;
+    const rect = mapContainer.getBoundingClientRect();
+    const pinRect = pin.getBoundingClientRect();
+    let left = pinRect.left - rect.left + 10;
+    let top = pinRect.top - rect.top - 60;
+    if(left + 170 > rect.width) left = left - 170;
+    if(top < 0) top = pinRect.bottom - rect.top + 5;
+    tooltip.style.left = left + 'px';
+    tooltip.style.top = top + 'px';
+    tooltip.classList.add('show');
+    pin.classList.add('active');
+  });
+  pin.addEventListener('mouseleave', ()=>{
+    tooltip.classList.remove('show');
+    pin.classList.remove('active');
+  });
+});
+</script>
 </body>
 </html>
