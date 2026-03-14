@@ -322,16 +322,28 @@ async function fetchWeather(){
     if(!res.ok) throw new Error('weather API error');
     const data=await res.json();
 
-    // 波高API（失敗してもOK）
+    // 波高API（現在値＋週間データ、失敗してもOK）
     let waveH=null;
+    let waveByDay={};
     try{
       const ctrl=new AbortController();
       const tid=setTimeout(()=>ctrl.abort(),5000);
-      const mRes=await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${LAT}&longitude=${LON}&current=wave_height&forecast_days=1&timezone=Asia%2FTokyo`,{signal:ctrl.signal});
+      const mRes=await fetch(`https://marine-api.open-meteo.com/v1/marine?latitude=${LAT}&longitude=${LON}&current=wave_height&hourly=wave_height&forecast_days=7&timezone=Asia%2FTokyo`,{signal:ctrl.signal});
       clearTimeout(tid);
       if(mRes.ok){
         const mData=await mRes.json();
         waveH=mData.current?.wave_height??null;
+        // 日ごとの最大波高を集計
+        if(mData.hourly){
+          const mht=mData.hourly.time, mhw=mData.hourly.wave_height;
+          for(let i=0;i<mht.length;i++){
+            const d=dk(new Date(mht[i]));
+            if(mhw[i]!==null){
+              if(!waveByDay[d]) waveByDay[d]=[];
+              waveByDay[d].push(mhw[i]);
+            }
+          }
+        }
       }
     }catch(e){waveH=null;}
 
@@ -375,16 +387,21 @@ async function fetchWeather(){
       const minW=Math.min(...val.winds), maxW=Math.max(...val.winds);
       const domC=val.codes.sort((a,b)=>val.codes.filter(v=>v===b).length-val.codes.filter(v=>v===a).length)[0];
       const ww=WMO[domC]||['🌡️',''];
-      const jj=wJudge(maxW), dd=val.date;
+      // 波高データがあれば最大波高で複合判定
+      const dayWaves=waveByDay[d];
+      const maxWave=dayWaves&&dayWaves.length?Math.max(...dayWaves):null;
+      const jj=combinedJudge(maxW, maxWave);
+      const dd=val.date;
       const isToday=d===todayKey();
       const dow=isToday?'今日':DAYS_JP[dd.getDay()]+'曜';
       const label=`${dd.getMonth()+1}/${dd.getDate()}（${dow}）`;
+      const waveStr=maxWave!==null?` 波${maxWave.toFixed(1)}m`:'';
       return `<div class="forecast-row" onclick="selectDay(this,'${d}','${label}')">
         <div class="forecast-day">${dd.getMonth()+1}/${dd.getDate()}<span>${dow}</span></div>
         <div class="forecast-icon">${ww[0]}</div>
         <div class="forecast-winds">
           <div class="wind-range"><span class="wind-min">${minW.toFixed(1)}</span><span style="color:var(--muted);font-size:11px"> ～ </span><span class="wind-max">${maxW.toFixed(1)} m/s</span></div>
-          <div class="wind-range-label">最小 ～ 最大</div>
+          <div class="wind-range-label">風速最小～最大${waveStr}</div>
         </div>
         <div class="forecast-badge ${jj.badge}">${jj.label}</div>
       </div>`;
